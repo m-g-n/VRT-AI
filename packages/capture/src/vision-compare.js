@@ -73,17 +73,36 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
       const candidateBase64 = imageToBase64(candidatePath);
 
       const mimeType = getMimeType(baselinePath);
+      
+      // diff.webp がある場合は読み込む
+      const imageName = path.parse(filename).name;
+      const diffPath = path.join(outputDir, imageName, 'diff.webp');
+      let diffBase64 = null;
+      if (fs.existsSync(diffPath)) {
+        diffBase64 = imageToBase64(diffPath);
+      }
 
       const systemPrompt = `あなたはWebページの視覚レグレッションテストを行うレビュアーだ。
-与えられた2枚のスクリーンショット画像を比較し、以下を行うこと。
+与えられた画像を比較し、以下を行うこと。
 
+### 入力画像について
+1. 最初の画像: ベースライン（変更前）
+2. 次の画像: 候補（変更後）
+3. 差分画像（赤色でハイライト）: 検出された差分領域（存在する場合）
+
+### 判定ルール
 - レイアウト上の差分（位置・サイズ・余白・重なり・要素の有無）に注目する。
-- 画像やテキスト内容そのものの違いは「軽微な差分」として扱い、レイアウト崩れがあるかどうかを優先的に判定する。
-- 結果は必ず次のJSON形式で返すこと：
+- 画像やテキスト内容そのものの違いは「軽微な差分」として扱い、レイアウト崩れを優先的に判定する。
+- 各セクションにおいて、listやカードの並び順の増減は必ずレイアウト差分として扱う。
+- 差分画像が提供されている場合は、その赤色ハイライト領域を確認して判定の根拠とする。
+
+### 出力形式
+結果は必ず次のJSON形式で返すこと：
 
 {
   "result": "OK" | "NG",
   "summary": "人間向けの短い説明",
+  "diff_analysis": "差分画像の分析結果（差分画像がある場合）",
   "differences": [
     {
       "area": "ヘッダー / メインビジュアル / サイドバー など",
@@ -94,9 +113,39 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
   ]
 }
 
-- result は以下のルールで決めること：
-  - 「major の layout-change / missing-element / overlap」が一つでもあれば "NG"
-  - それ以外のみなら "OK"`;
+### ステータス判定
+- 「major の layout-change / missing-element / overlap」が一つでもあれば "NG"
+- それ以外のみなら "OK"`;
+
+      // メッセージコンテンツを組み立て
+      const messageContent = [
+        {
+          type: 'text',
+          text: systemPrompt + '\n\n上記の画像を分析し、判定してください。',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${mimeType};base64,${baselineBase64}`,
+          },
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${mimeType};base64,${candidateBase64}`,
+          },
+        },
+      ];
+      
+      // 差分画像がある場合は追加
+      if (diffBase64) {
+        messageContent.push({
+          type: 'image_url',
+          image_url: {
+            url: `data:image/webp;base64,${diffBase64}`,
+          },
+        });
+      }
 
       // OpenAI API で比較
       const response = await client.chat.completions.create({
@@ -105,24 +154,7 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: systemPrompt + '\n\n次の2枚の画像を比較し、上記ルールに従って判定してください。\n\n最初の画像がベースライン（変更前）、次の画像が候補（変更後）です。',
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${baselineBase64}`,
-                },
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${candidateBase64}`,
-                },
-              },
-            ],
+            content: messageContent,
           },
         ],
       });
@@ -153,10 +185,14 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
         };
       }
 
-      visionResult.name = path.parse(filename).name;
+      visionResult.name = imageName;
+      visionResult.has_diff_image = !!diffBase64;
       results.push(visionResult);
 
       console.log(`   結果: ${visionResult.result} - ${visionResult.summary}`);
+      if (diffBase64) {
+        console.log(`   📊 差分画像をレビューに含めました`);
+      }
       if (visionResult.differences && visionResult.differences.length > 0) {
         console.log(`   差分: ${visionResult.differences.length} 件検出`);
       }
@@ -167,6 +203,7 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
         result: 'ERROR',
         summary: error.message,
         differences: [],
+        has_diff_image: false,
       });
     }
   }
