@@ -8,6 +8,7 @@
   "scripts": {
     "capture:baseline": "./capture.sh",
     "capture:candidate": "./capture.sh -c",
-    "compare": "./compare.sh"
+    "compare": "./compare.sh",
+    "vision:compare": "node ./packages/capture/src/vision-compare.js"
   }
 }

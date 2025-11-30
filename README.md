@@ -1,11 +1,12 @@
 # VRT AI - AI-Powered Visual Regression Testing
 
-WebP ベースの AI 駆動型ビジュアル回帰テストシステム。Playwright でスクリーンショット取得、Python + PyTorch で高度な画像比較を行う。
+WebP ベースの AI 駆動型ビジュアル回帰テストシステム。Playwright でスクリーンショット取得、複数の比較エンジンを搭載。
 
 ## 構成
 
 - **capture** (`packages/capture/`) - Node.js + Playwright でスクリーンショット取得
 - **compare** (`packages/compare/`) - Python + PyTorch でビジュアル比較
+- **vision-compare** - OpenAI Vision (GPT-4o-mini) によるレイアウト検証
 
 ## セットアップ
 
@@ -91,6 +92,8 @@ npm run capture:candidate
 
 ### 4. 比較実行
 
+#### 機械学習ベースの比較（PyTorch + ResNet18）
+
 基本的な比較（OK の場合は差分画像なし）：
 ```bash
 npm run compare
@@ -102,7 +105,18 @@ npm run compare -- --all
 ```
 
 結果は `packages/compare/results/comparison_results.json` に出力されます。
-差分画像は `packages/compare/results/{画像名}/diff.png` に保存されます。
+差分画像は `packages/compare/results/{画像名}/diff.webp` に保存されます。
+
+#### Vision ベースの比較（OpenAI GPT-4o-mini）
+
+レイアウト崩れを人間のような視点で検証：
+```bash
+npm run vision:compare
+```
+
+**セットアップ**: `VISION_SETUP.md` を参照してください。
+
+結果は `packages/compare/results/vision_comparison_results.json` に出力されます。
 
 ## 結果の見方
 
@@ -158,3 +172,21 @@ npm run compare -- --all
   - モルフォロジー処理（オープニング 2 回 + クロージング 1 回）
   - 500 ピクセル未満の小さい連結成分を自動除去
 - 差分部分を赤でハイライトした PNG を出力
+
+### Vision 比較（OpenAI GPT-4o-mini）
+- 画像を Base64 エンコーディング
+- OpenAI API で画像を同時に送信
+- レイアウト崩れを人間のような視点で評価
+- 結果を JSON で構造化（area/type/severity/description）
+- **判定ルール**:
+  - major の layout-change / missing-element / overlap があれば "NG"
+  - その他は "OK"
+
+## 比較エンジンの選択
+
+| エンジン | 方式 | 速度 | コスト | 特徴 |
+|---------|------|------|--------|------|
+| **PyTorch (デフォルト)** | 機械学習 | 高速 | 無料 | 自動・量的分析、ノイズに強い |
+| **Vision (GPT-4o-mini)** | LLM Vision | 中速 | 低額 | 人間的判断、レイアウト評価、詳細説明 |
+
+両方実行して相互検証することも可能です。

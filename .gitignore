@@ -48,6 +48,7 @@ venv.bak/
 .env
 .env.local
 .env.*.local
+.openai-key
 
 # Project specific
 baseline/
