@@ -13,7 +13,13 @@ function loadApiKey() {
     console.error(`📍 ${keyPath} にファイルを作成してください`);
     process.exit(1);
   }
-  return fs.readFileSync(keyPath, 'utf-8').trim();
+  const apiKey = fs.readFileSync(keyPath, 'utf-8').trim();
+  if (!apiKey) {
+    console.error('❌ API キーが空です');
+    console.error(`📍 ${keyPath} に有効な API キーを記入してください`);
+    process.exit(1);
+  }
+  return apiKey;
 }
 
 // 画像をBase64に変換
@@ -34,7 +40,9 @@ function getMimeType(imagePath) {
 
 async function compareWithVision(baselineDir, candidateDir, outputDir) {
   const apiKey = loadApiKey();
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({
+    apiKey: apiKey,
+  });
 
   // 比較対象の画像をスキャン
   const baselineFiles = fs.readdirSync(baselineDir)
@@ -66,12 +74,7 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
 
       const mimeType = getMimeType(baselinePath);
 
-      // OpenAI API で比較
-      const response = await client.messages.create({
-        model: 'gpt-4o-mini',
-        max_tokens: 1024,
-        system: `
-あなたはWebページの視覚レグレッションテストを行うレビュアーだ。
+      const systemPrompt = `あなたはWebページの視覚レグレッションテストを行うレビュアーだ。
 与えられた2枚のスクリーンショット画像を比較し、以下を行うこと。
 
 - レイアウト上の差分（位置・サイズ・余白・重なり・要素の有無）に注目する。
@@ -93,30 +96,30 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
 
 - result は以下のルールで決めること：
   - 「major の layout-change / missing-element / overlap」が一つでもあれば "NG"
-  - それ以外のみなら "OK"
-`,
+  - それ以外のみなら "OK"`;
+
+      // OpenAI API で比較
+      const response = await client.chat.completions.create({
+        model: 'gpt-4o-mini',
+        max_tokens: 1024,
         messages: [
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: '次の2枚の画像を比較し、上記ルールに従って判定してください。\n\n最初の画像がベースライン（変更前）、次の画像が候補（変更後）です。',
+                text: systemPrompt + '\n\n次の2枚の画像を比較し、上記ルールに従って判定してください。\n\n最初の画像がベースライン（変更前）、次の画像が候補（変更後）です。',
               },
               {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mimeType,
-                  data: baselineBase64,
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${baselineBase64}`,
                 },
               },
               {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mimeType,
-                  data: candidateBase64,
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${candidateBase64}`,
                 },
               },
             ],
@@ -125,7 +128,7 @@ async function compareWithVision(baselineDir, candidateDir, outputDir) {
       });
 
       // レスポンスを解析
-      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      const responseText = response.choices[0].message.content;
 
       let visionResult;
       try {
