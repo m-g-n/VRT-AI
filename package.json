@@ -1,0 +1,13 @@
+{
+  "name": "vrt-ai",
+  "version": "0.1.0",
+  "description": "AI-powered visual regression testing using WebP",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "capture:baseline": "./capture.sh",
+    "capture:candidate": "./capture.sh -c",
+    "compare": "./compare.sh"
+  }
+}
