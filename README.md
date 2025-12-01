@@ -55,11 +55,31 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 設定ファイルの準備
+
+```bash
+# targets_sample.json をコピーして targets.json を作成
+cp packages/capture/targets_sample.json packages/capture/targets.json
+```
+
+**注意**: `targets.json` は `.gitignore` で保護されているため、リポジトリにはコミットされません。
+
 ## 使用方法
 
 ### 1. キャプチャ対象 URL を設定
 
-`packages/capture/targets.json` を編集（URL のリストのみ）：
+**重要**: `targets.json` は `.gitignore` で保護されています。
+
+以下の手順で設定ファイルを作成してください：
+
+```bash
+# targets_sample.json をコピーして targets.json を作成
+cp packages/capture/targets_sample.json packages/capture/targets.json
+
+# targets.json を編集（URL のリストのみ）
+```
+
+編集後の `packages/capture/targets.json`：
 
 ```json
 [
