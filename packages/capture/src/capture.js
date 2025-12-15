@@ -133,13 +133,15 @@ function generateNameFromUrl(urlString) {
   const url = new URL(urlString);
   let pathname = url.pathname.replace(/^\/|\/$/g, ''); // スラッシュを削除
   
-  // ベースとなるファイル名を生成
-  let baseName = pathname ? pathname.replace(/\//g, '-').replace(/[^a-z0-9-]/g, '') : 'home';
+  // ベースとなるファイル名を生成（小文字に変換してから不要な文字を削除）
+  let baseName = pathname 
+    ? pathname.toLowerCase().replace(/\//g, '-').replace(/[^a-z0-9-]/g, '') 
+    : 'home';
   
   // クエリパラメータが存在する場合、ハッシュをファイル名に追加
   if (url.search) {
-    // クエリパラメータのハッシュを生成（8文字）
-    const queryHash = createHash('md5').update(url.search).digest('hex').substring(0, 8);
+    // クエリパラメータのハッシュを生成（8文字、SHA-256使用）
+    const queryHash = createHash('sha256').update(url.search).digest('hex').substring(0, 8);
     baseName = `${baseName}-${queryHash}`;
   }
   
