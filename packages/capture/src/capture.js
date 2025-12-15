@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import { createHash } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -132,12 +133,17 @@ function generateNameFromUrl(urlString) {
   const url = new URL(urlString);
   let pathname = url.pathname.replace(/^\/|\/$/g, ''); // スラッシュを削除
   
-  if (!pathname) {
-    return 'home'; // ルートの場合は 'home'
+  // ベースとなるファイル名を生成
+  let baseName = pathname ? pathname.replace(/\//g, '-').replace(/[^a-z0-9-]/g, '') : 'home';
+  
+  // クエリパラメータが存在する場合、ハッシュをファイル名に追加
+  if (url.search) {
+    // クエリパラメータのハッシュを生成（8文字）
+    const queryHash = createHash('md5').update(url.search).digest('hex').substring(0, 8);
+    baseName = `${baseName}-${queryHash}`;
   }
   
-  // パスのセグメントをハイフンで結合
-  return pathname.replace(/\//g, '-').replace(/[^a-z0-9-]/g, '');
+  return baseName;
 }
 
 for (const url of targetUrls) {
