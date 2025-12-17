@@ -144,11 +144,20 @@ function generateNameFromUrl(urlString) {
     
     // 各パラメータからファイル名に使える文字列を生成
     for (const [key, value] of params) {
-      // キーと値を結合してサニタイズ（キー10文字+値10文字まで）
+      // キーをサニタイズ（最大10文字）
       const sanitizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
-      const sanitizedValue = value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
       
       if (sanitizedKey) {
+        // 値に非ASCII文字が含まれる場合は先頭3文字をエンコード、そうでない場合はサニタイズ
+        let sanitizedValue;
+        if (/[^\x00-\x7F]/.test(value)) {
+          // 非ASCII文字を含む場合：先頭3文字をURLエンコード
+          sanitizedValue = encodeURIComponent(value.substring(0, 3));
+        } else {
+          // ASCII文字のみの場合：既存のサニタイズ処理（最大10文字）
+          sanitizedValue = value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+        }
+        
         if (sanitizedValue) {
           paramParts.push(`${sanitizedKey}-${sanitizedValue}`);
         } else {
