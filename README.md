@@ -95,10 +95,12 @@ cp packages/capture/targets_sample.json packages/capture/targets.json
 - `https://example.com/contact` → `contact.webp`
 
 **クエリパラメータ付きの URL は別ファイルとして扱われます：**
-- `https://example.com/?s=test` → `home-21fd16a1.webp`（ハッシュ付き）
-- `https://example.com/?s=other` → `home-c6d2f1c5.webp`（異なるハッシュ）
+- `https://example.com/?s=test` → `home-s-test.webp`
+- `https://example.com/?s=検索テキスト` → `home-s.webp`（日本語は削除される）
+- `https://example.com/?category=news&tag=tech` → `home-category-news_tag-tech.webp`
 
 パラメータが異なる URL は自動的に異なるファイル名が生成されるため、個別に比較されます。
+ファイル名にパラメータの内容が含まれるため、どのパラメータでキャプチャされたかが分かりやすくなります。
 
 ### 2. ベースラインスクリーンショット取得
 

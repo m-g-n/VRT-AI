@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
-import { createHash } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -138,11 +137,31 @@ function generateNameFromUrl(urlString) {
     ? pathname.toLowerCase().replace(/\//g, '-').replace(/[^a-z0-9-]/g, '') 
     : 'home';
   
-  // クエリパラメータが存在する場合、ハッシュをファイル名に追加
+  // クエリパラメータが存在する場合、パラメータから文字列を生成してファイル名に追加
   if (url.search) {
-    // クエリパラメータのハッシュを生成（8文字、SHA-256使用）
-    const queryHash = createHash('sha256').update(url.search).digest('hex').substring(0, 8);
-    baseName = `${baseName}-${queryHash}`;
+    const params = new URLSearchParams(url.search);
+    const paramParts = [];
+    
+    // 各パラメータからファイル名に使える文字列を生成
+    for (const [key, value] of params) {
+      // キーと値を結合してサニタイズ（最大20文字に制限）
+      const sanitizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+      const sanitizedValue = value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+      
+      if (sanitizedKey) {
+        if (sanitizedValue) {
+          paramParts.push(`${sanitizedKey}-${sanitizedValue}`);
+        } else {
+          paramParts.push(sanitizedKey);
+        }
+      }
+    }
+    
+    // パラメータ文字列を生成（最大40文字）
+    if (paramParts.length > 0) {
+      const paramString = paramParts.join('_').substring(0, 40);
+      baseName = `${baseName}-${paramString}`;
+    }
   }
   
   return baseName;
