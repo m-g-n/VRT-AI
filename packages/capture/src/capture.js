@@ -132,12 +132,59 @@ function generateNameFromUrl(urlString) {
   const url = new URL(urlString);
   let pathname = url.pathname.replace(/^\/|\/$/g, ''); // スラッシュを削除
   
-  if (!pathname) {
-    return 'home'; // ルートの場合は 'home'
+  // ベースとなるファイル名を生成（小文字に変換してから不要な文字を削除）
+  let baseName = pathname 
+    ? pathname.toLowerCase().replace(/\//g, '-').replace(/[^a-z0-9-]/g, '') 
+    : 'home';
+  
+  // クエリパラメータが存在する場合、パラメータから文字列を生成してファイル名に追加
+  if (url.search) {
+    const params = new URLSearchParams(url.search);
+    const paramParts = [];
+    
+    // 各パラメータからファイル名に使える文字列を生成
+    for (const [key, value] of params) {
+      // キーをサニタイズ（最大10文字）
+      const sanitizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+      
+      if (sanitizedKey) {
+        // 値に非ASCII文字が含まれる場合は先頭3文字をエンコード、そうでない場合はサニタイズ
+        let sanitizedValue;
+        if (/[^\x00-\x7F]/.test(value)) {
+          // 非ASCII文字を含む場合：先頭3文字をURLエンコード
+          sanitizedValue = encodeURIComponent(value.substring(0, 3));
+        } else {
+          // ASCII文字のみの場合：既存のサニタイズ処理（最大10文字）
+          sanitizedValue = value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+        }
+        
+        if (sanitizedValue) {
+          paramParts.push(`${sanitizedKey}-${sanitizedValue}`);
+        } else {
+          paramParts.push(sanitizedKey);
+        }
+      }
+    }
+    
+    // パラメータ文字列を生成（全体で最大50文字まで、パラメータ境界を尊重）
+    if (paramParts.length > 0) {
+      let paramString = '';
+      for (const part of paramParts) {
+        const newString = paramString ? `${paramString}_${part}` : part;
+        if (newString.length <= 50) {
+          paramString = newString;
+        } else {
+          // 制限を超える場合はここまでで終了
+          break;
+        }
+      }
+      if (paramString) {
+        baseName = `${baseName}-${paramString}`;
+      }
+    }
   }
   
-  // パスのセグメントをハイフンで結合
-  return pathname.replace(/\//g, '-').replace(/[^a-z0-9-]/g, '');
+  return baseName;
 }
 
 for (const url of targetUrls) {
