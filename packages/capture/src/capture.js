@@ -144,7 +144,7 @@ function generateNameFromUrl(urlString) {
     
     // 各パラメータからファイル名に使える文字列を生成
     for (const [key, value] of params) {
-      // キーと値を結合してサニタイズ（最大20文字に制限）
+      // キーと値を結合してサニタイズ（キー10文字+値10文字まで）
       const sanitizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
       const sanitizedValue = value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
       
@@ -157,10 +157,21 @@ function generateNameFromUrl(urlString) {
       }
     }
     
-    // パラメータ文字列を生成（最大40文字）
+    // パラメータ文字列を生成（全体で最大50文字まで、パラメータ境界を尊重）
     if (paramParts.length > 0) {
-      const paramString = paramParts.join('_').substring(0, 40);
-      baseName = `${baseName}-${paramString}`;
+      let paramString = '';
+      for (const part of paramParts) {
+        const newString = paramString ? `${paramString}_${part}` : part;
+        if (newString.length <= 50) {
+          paramString = newString;
+        } else {
+          // 制限を超える場合はここまでで終了
+          break;
+        }
+      }
+      if (paramString) {
+        baseName = `${baseName}-${paramString}`;
+      }
     }
   }
   
